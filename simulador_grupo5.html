@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Escalonamento - Grupo 5</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--text); line-height: 1.5; padding: 20px; }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 2rem; background: linear-gradient(90deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        header p { color: var(--muted); margin-top: 5px; }
+        
+        .container { max-width: 1100px; margin: 0 auto; display: grid; gap: 25px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); }
+        .card h2 { font-size: 1.3rem; margin-bottom: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 0.9rem; color: var(--muted); }
+        input, select { background: #0f172a; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 1rem; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px #3b82f633; }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.1); }
+        .btn.success { background: var(--success); }
+        .btn.warning { background: var(--warning); }
+        .btn.danger { background: var(--danger); }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: center; border-bottom: 1px solid var(--border); }
+        th { background: #0f172a; color: var(--muted); font-weight: 600; }
+        tr:hover { background: #33415533; }
+        
+        .gantt-container { overflow-x: auto; padding: 15px 0; }
+        .gantt-track { display: flex; align-items: center; position: relative; height: 40px; background: #0f172a; border-radius: 6px; margin-bottom: 8px; }
+        .gantt-block { height: 30px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.85rem; border-radius: 4px; position: absolute; top: 5px; transition: 0.3s; cursor: default; }
+        .gantt-block:hover { filter: brightness(1.2); z-index: 10; }
+        .time-markers { display: flex; position: relative; height: 20px; margin-top: 5px; }
+        .time-mark { position: absolute; font-size: 0.75rem; color: var(--muted); transform: translateX(-50%); }
+        
+        .metrics { display: flex; gap: 20px; margin-top: 15px; flex-wrap: wrap; }
+        .metric-box { flex: 1; min-width: 150px; background: #0f172a; padding: 12px; border-radius: 8px; text-align: center; }
+        .metric-box h3 { font-size: 0.9rem; color: var(--muted); }
+        .metric-box p { font-size: 1.4rem; font-weight: bold; color: var(--success); }
+        
+        .hidden { display: none; }
+        .toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 12px 20px; border-radius: 8px; box-shadow: var(--shadow); transform: translateY(100px); transition: 0.3s; z-index: 100; }
+        .toast.show { transform: translateY(0); }
+        
+        @media print {
+            body { background: white; color: black; }
+            .card { box-shadow: none; border: 1px solid #ccc; }
+            .btn-group, #input-section { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🖥️ Simulador de Escalonamento de CPU</h1>
+        <p>Grupo 5 • Gestão de Processos • Algoritmos: FCFS, SJF, RR, Prioridade</p>
+    </header>
+
+    <div class="container">
+        <!-- Seção de Entrada -->
+        <div class="card" id="input-section">
+            <h2>📝 Configuração dos Processos</h2>
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>ID do Processo</label>
+                    <input type="number" id="pid" min="1" placeholder="Ex: 1">
+                </div>
+                <div class="input-group">
+                    <label>Tempo de Chegada</label>
+                    <input type="number" id="arrival" min="0" placeholder="Ex: 0">
+                </div>
+                <div class="input-group">
+                    <label>Burst (Tempo UCP)</label>
+                    <input type="number" id="burst" min="1" placeholder="Ex: 5">
+                </div>
+                <div class="input-group">
+                    <label>Prioridade (menor = maior)</label>
+                    <input type="number" id="priority" min="0" placeholder="Ex: 0">
+                </div>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="addProcess()">➕ Adicionar Processo</button>
+                <button class="btn warning" onclick="loadDefault()">📥 Carregar Dados do Trabalho</button>
+                <button class="btn danger" onclick="clearProcesses()">🗑️ Limpar Tudo</button>
+            </div>
+            
+            <table id="process-table">
+                <thead>
+                    <tr><th>ID</th><th>Chegada</th><th>Burst</th><th>Prioridade</th><th>Ação</th></tr>
+                </thead>
+                <tbody id="process-list"></tbody>
+            </table>
+        </div>
+
+        <!-- Controles -->
+        <div class="card">
+            <h2>⚙️ Configuração do Algoritmo</h2>
+            <div class="input-grid">
+                <div class="input-group">
+                    <label>Algoritmo</label>
+                    <select id="algorithm">
+                        <option value="fcfs">FCFS (First Come First Served)</option>
+                        <option value="sjf">SJF (Shortest Job First)</option>
+                        <option value="rr">Round Robin</option>
+                        <option value="priority">Prioridade</option>
+                    </select>
+                </div>
+                <div class="input-group" id="quantum-group" style="display:none;">
+                    <label>Quantum (apenas para RR)</label>
+                    <input type="number" id="quantum" min="1" value="2">
+                </div>
+                <div class="input-group" style="align-self: flex-end;">
+                    <button class="btn success" onclick="runSimulation()">▶️ Executar Simulação</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resultados -->
+        <div class="card hidden" id="results-section">
+            <h2>📊 Resultados do Escalonamento</h2>
+            <table>
+                <thead>
+                    <tr><th>Processo</th><th>Chegada</th><th>Burst</th><th>Início</th><th>Conclusão</th><th>Turnaround</th><th>Espera</th></tr>
+                </thead>
+                <tbody id="results-body"></tbody>
+            </table>
+            <div class="metrics">
+                <div class="metric-box"><h3>Turnaround Médio</h3><p id="avg-tat">0.00</p></div>
+                <div class="metric-box"><h3>Espera Média</h3><p id="avg-wt">0.00</p></div>
+                <div class="metric-box"><h3>Throughput</h3><p id="throughput">0.00</p></div>
+            </div>
+        </div>
+
+        <!-- Gantt Chart -->
+        <div class="card hidden" id="gantt-section">
+            <h2>📈 Diagrama de Gantt</h2>
+            <div class="gantt-container" id="gantt-chart"></div>
+            <div class="btn-group">
+                <button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">✅ Processo adicionado!</div>
+
+    <script>
+        let processes = [];
+        let ganttData = [];
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+        // UI Helpers
+        document.getElementById('algorithm').addEventListener('change', (e) => {
+            document.getElementById('quantum-group').style.display = e.target.value === 'rr' ? 'block' : 'none';
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function addProcess() {
+            const id = parseInt(document.getElementById('pid').value);
+            const arrival = parseInt(document.getElementById('arrival').value);
+            const burst = parseInt(document.getElementById('burst').value);
+            const priority = parseInt(document.getElementById('priority').value) || 0;
+
+            if (isNaN(id) || isNaN(arrival) || isNaN(burst) || burst <= 0) {
+                showToast('️ Preencha todos os campos corretamente!');
+                return;
+            }
+            if (processes.some(p => p.id === id)) {
+                showToast('⚠️ ID já existe!');
+                return;
+            }
+
+            processes.push({ id, arrival, burst, priority, originalBurst: burst });
+            processes.sort((a, b) => a.arrival - b.arrival || a.id - b.id);
+            renderTable();
+            showToast('✅ Processo P' + id + ' adicionado!');
+            
+            // Limpar inputs
+            document.getElementById('pid').value = '';
+            document.getElementById('arrival').value = '';
+            document.getElementById('burst').value = '';
+            document.getElementById('priority').value = '';
+        }
+
+        function loadDefault() {
+            processes = [
+                { id: 1, arrival: 0, burst: 5, priority: 0, originalBurst: 5 },
+                { id: 2, arrival: 1, burst: 3, priority: 0, originalBurst: 3 },
+                { id: 3, arrival: 2, burst: 1, priority: 0, originalBurst: 1 },
+                { id: 4, arrival: 3, burst: 7, priority: 0, originalBurst: 7 }
+            ];
+            renderTable();
+            showToast('📥 Dados do trabalho carregados!');
+        }
+
+        function clearProcesses() {
+            processes = [];
+            renderTable();
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('gantt-section').classList.add('hidden');
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('process-list');
+            tbody.innerHTML = processes.map((p, i) => `
+                <tr>
+                    <td>P${p.id}</td>
+                    <td>${p.arrival}</td>
+                    <td>${p.burst}</td>
+                    <td>${p.priority}</td>
+                    <td><button class="btn danger" style="padding: 5px 10px; font-size: 0.8rem;" onclick="removeProcess(${i})">✖</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function removeProcess(index) {
+            processes.splice(index, 1);
+            renderTable();
+        }
+
+        // Algoritmos
+        function runSimulation() {
+            if (processes.length === 0) {
+                showToast('⚠️ Adicione pelo menos um processo!');
+                return;
+            }
+
+            const algo = document.getElementById('algorithm').value;
+            const quantum = parseInt(document.getElementById('quantum').value) || 2;
+            
+            // Reset states
+            let procs = processes.map(p => ({...p, remaining: p.burst, completion: 0, start: -1, waiting: 0, tat: 0}));
+            ganttData = [];
+
+            if (algo === 'fcfs') simulateFCFS(procs);
+            else if (algo === 'sjf') simulateSJF(procs);
+            else if (algo === 'rr') simulateRR(procs, quantum);
+            else if (algo === 'priority') simulatePriority(procs);
+
+            renderResults(procs);
+            renderGantt();
+            document.getElementById('results-section').classList.remove('hidden');
+            document.getElementById('gantt-section').classList.remove('hidden');
+        }
+
+        function simulateFCFS(procs) {
+            let time = 0;
+            procs.forEach(p => {
+                if (time < p.arrival) time = p.arrival;
+                if (p.start === -1) p.start = time;
+                ganttData.push({ pid: p.id, start: time, end: time + p.burst, color: colors[(p.id-1)%colors.length] });
+                time += p.burst;
+                p.completion = time;
+            });
+        }
+
+        function simulateSJF(procs) {
+            let time = 0, completed = 0, n = procs.length;
+            while (completed < n) {
+                let best = null, minBurst = Infinity;
+                for (let p of procs) {
+                    if (!p.completed && p.arrival <= time && p.remaining < minBurst) {
+                        minBurst = p.remaining;
+                        best = p;
+                    }
+                }
+                if (best) {
+                    if (best.start === -1) best.start = time;
+                    let exec = best.remaining;
+                    ganttData.push({ pid: best.id, start: time, end: time + exec, color: colors[(best.id-1)%colors.length] });
+                    time += exec;
+                    best.completion = time;
+                    best.remaining = 0;
+                    best.completed = true;
+                    completed++;
+                } else {
+                    time++;
+                }
+            }
+        }
+
+        function simulateRR(procs, quantum) {
+            let time = 0, completed = 0, n = procs.length;
+            let queue = [];
+            
+            while (completed < n) {
+                // Adicionar processos que chegaram
+                for (let p of procs) {
+                    if (!p.addedToQueue && p.arrival <= time) {
+                        queue.push(p);
+                        p.addedToQueue = true;
+                    }
+                }
+                
+                if (queue.length === 0) {
+                    time++;
+                    continue;
+                }
+                
+                let current = queue.shift();
+                if (current.start === -1) current.start = time;
+                
+                let exec = Math.min(current.remaining, quantum);
+                ganttData.push({ pid: current.id, start: time, end: time + exec, color: colors[(current.id-1)%colors.length] });
+                
+                time += exec;
+                current.remaining -= exec;
+                
+                // Adicionar novos chegados durante execução
+                for (let p of procs) {
+                    if (!p.addedToQueue && p.arrival <= time && p !== current) {
+                        queue.push(p);
+                        p.addedToQueue = true;
+                    }
+                }
+                
+                if (current.remaining > 0) {
+                    queue.push(current);
+                } else {
+                    current.completion = time;
+                    current.completed = true;
+                    completed++;
+                }
+            }
+        }
+
+        function simulatePriority(procs) {
+            let time = 0, completed = 0, n = procs.length;
+            while (completed < n) {
+                let best = null, minPrio = Infinity;
+                for (let p of procs) {
+                    if (!p.completed && p.arrival <= time && p.priority < minPrio) {
+                        minPrio = p.priority;
+                        best = p;
+                    }
+                }
+                if (best) {
+                    if (best.start === -1) best.start = time;
+                    let exec = best.remaining;
+                    ganttData.push({ pid: best.id, start: time, end: time + exec, color: colors[(best.id-1)%colors.length] });
+                    time += exec;
+                    best.completion = time;
+                    best.remaining = 0;
+                    best.completed = true;
+                    completed++;
+                } else {
+                    time++;
+                }
+            }
+        }
+
+        function renderResults(procs) {
+            let totalTAT = 0, totalWT = 0;
+            const tbody = document.getElementById('results-body');
+            tbody.innerHTML = procs.map(p => {
+                p.tat = p.completion - p.arrival;
+                p.waiting = p.tat - p.originalBurst;
+                totalTAT += p.tat;
+                totalWT += p.waiting;
+                return `<tr>
+                    <td>P${p.id}</td><td>${p.arrival}</td><td>${p.originalBurst}</td>
+                    <td>${p.start}</td><td>${p.completion}</td><td>${p.tat}</td><td>${p.waiting}</td>
+                </tr>`;
+            }).join('');
+            
+            document.getElementById('avg-tat').textContent = (totalTAT / procs.length).toFixed(2);
+            document.getElementById('avg-wt').textContent = (totalWT / procs.length).toFixed(2);
+            document.getElementById('throughput').textContent = (procs.length / procs[procs.length-1].completion).toFixed(2);
+        }
+
+        function renderGantt() {
+            const container = document.getElementById('gantt-chart');
+            const maxTime = ganttData.reduce((max, g) => Math.max(max, g.end), 0);
+            
+            // Track
+            let html = '<div style="position:relative; height:40px; background:#0f172a; border-radius:6px; margin-bottom:10px;">';
+            ganttData.forEach(g => {
+                const left = (g.start / maxTime) * 100;
+                const width = ((g.end - g.start) / maxTime) * 100;
+                html += `<div class="gantt-block" style="left:${left}%; width:${width}%; background:${g.color};" title="P${g.pid}: ${g.start}-${g.end}">P${g.pid}</div>`;
+            });
+            html += '</div>';
+            
+            // Time markers
+            html += '<div class="time-markers" style="position:relative; height:20px;">';
+            for (let t = 0; t <= maxTime; t += Math.max(1, Math.floor(maxTime/15))) {
+                html += `<div class="time-mark" style="left:${(t/maxTime)*100}%">${t}</div>`;
+            }
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
